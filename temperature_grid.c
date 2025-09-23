@@ -143,10 +143,12 @@ double find_res(grid_model_t *model, int n1, int i1, int j1, int n2, int i2, int
  * It will calculate the joint resistance only if there are values defined within the array or rx,ry,rz values. */
 double find_res_3D(int n, int i, int j, grid_model_t *model,int choice)
 {
-  int hasRes = model->layers[n].b2gmap[i][j]->hasRes;
+  /* ZYH: if (b2gmap[i][j] == NULL) using layer default RC	*/
+  blist_t *ptr = model->layers[n].b2gmap[i][j];
+  // int hasRes = model->layers[n].b2gmap[i][j]->hasRes;
   //Returns the rx of the grid cell
   if(choice==1){
-      if(!hasRes)
+      if(!(ptr && ptr->hasRes))
         return model->layers[n].rx;
       else
         return model->layers[n].b2gmap[i][j]->rx;
@@ -155,7 +157,7 @@ double find_res_3D(int n, int i, int j, grid_model_t *model,int choice)
 
   //Returns the ry of the grid cell
   else if(choice==2){
-      if(!hasRes)
+      if(!(ptr && ptr->hasRes))
         return model->layers[n].ry;
       else
         return model->layers[n].b2gmap[i][j]->ry;
@@ -163,11 +165,12 @@ double find_res_3D(int n, int i, int j, grid_model_t *model,int choice)
 
   //Returns the rz of the grid cell
   else if(choice==3){
-      if(!hasRes)
+      if(!(ptr && ptr->hasRes))
         return model->layers[n].rz;
       else
         return model->layers[n].b2gmap[i][j]->rz;
   }
+  /* end->ZYH */
 
   return 0;
 }//end->BU_3D
@@ -175,7 +178,9 @@ double find_res_3D(int n, int i, int j, grid_model_t *model,int choice)
 /* BU_3D: finds capacitance of 3D cell.*/
 double find_cap_3D(int n, int i, int j, grid_model_t *model)
 {
-  if (model->layers[n].b2gmap[i][j]->lock == TRUE) {
+  /* ZYH: if (b2gmap[i][j] == NULL) using layer default RC	*/
+  if (model->layers[n].b2gmap[i][j] && model->layers[n].b2gmap[i][j]->lock == TRUE) {
+  /* end->ZYH */
       // Return the capacitance of the unit that meets the occupancy threshold
       return model->layers[n].b2gmap[i][j]->capacitance;
   } else {
@@ -453,6 +458,45 @@ void set_bgmap(grid_model_t *model, layer_t *layer)
           }
       }
   }
+#ifndef ZYH
+  printf("Entering ZYH ... layer no: %d\n", layer->no); fflush(stdout);
+  /* ZYH: complement parallel resistance for b2gmaps not filled by flp units	*/
+  res = 1/layer->k;
+  sh = layer->sp;
+  /* This code takes reference from function 'reset_b2gmap()' in this file */
+  for(i=0; i < model->rows; i++) {
+    for(j=0; j < model->cols; j++) {
+      /* This code takes reference from function 'blist_append()' in this file */
+      if(layer->b2gmap[i][j] && model->config.detailed_3D_used && (layer->b2gmap[i][j]->lock != TRUE)) {
+        double sum_occupancy = 0.0;
+        /* This code takes reference from function 'blist_avg()' in this file */
+        for(blist_t *ptr = layer->b2gmap[i][j]; ptr; ptr->next) {
+          sum_occupancy += ptr->occupancy;
+        }
+        /* This code takes reference from function 'blist_append()' in this file */
+        if((1 - sum_occupancy) >= OCCUPANCY_THRESHOLD) {
+          layer->b2gmap[i][j]->lock = TRUE;
+          layer->b2gmap[i][j]->rx = getr(1/res, cw, ch * layer->thickness);
+          layer->b2gmap[i][j]->ry = getr(1/res, ch, cw * layer->thickness);
+          layer->b2gmap[i][j]->rz = getr(1/res, layer->thickness, cw * ch);
+          layer->b2gmap[i][j]->capacitance = getcap(sh, layer->thickness, cw * ch);
+        }
+        else {
+          layer->b2gmap[i][j]->rx = 1/((1/layer->b2gmap[i][j]->rx) + ((1 / getr(1 / res, cw, ch * layer->thickness)) * (1 - sum_occupancy)));
+          layer->b2gmap[i][j]->ry = 1/((1/layer->b2gmap[i][j]->ry) + ((1 / getr(1 / res, ch, cw * layer->thickness)) * (1 - sum_occupancy)));
+          layer->b2gmap[i][j]->rz = 1/((1/layer->b2gmap[i][j]->rz) + ((1 / getr(1 / res, layer->thickness, cw * ch)) * (1 - sum_occupancy)));
+          layer->b2gmap[i][j]->lock=FALSE;
+        }
+        /* not append another blist node because no name for empty unit */
+      }
+      else {
+        continue;
+      }
+    }
+  }
+  printf("Exiting ZYH ...\n"); fflush(stdout);
+  /* end->ZYH */
+#endif
 }
 
 /* populate default set of layers	*/
