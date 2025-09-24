@@ -458,8 +458,6 @@ void set_bgmap(grid_model_t *model, layer_t *layer)
           }
       }
   }
-#ifndef ZYH
-  printf("Entering ZYH ... layer no: %d\n", layer->no); fflush(stdout);
   /* ZYH: complement parallel resistance for b2gmaps not filled by flp units	*/
   res = 1/layer->k;
   sh = layer->sp;
@@ -470,7 +468,7 @@ void set_bgmap(grid_model_t *model, layer_t *layer)
       if(layer->b2gmap[i][j] && model->config.detailed_3D_used && (layer->b2gmap[i][j]->lock != TRUE)) {
         double sum_occupancy = 0.0;
         /* This code takes reference from function 'blist_avg()' in this file */
-        for(blist_t *ptr = layer->b2gmap[i][j]; ptr; ptr->next) {
+        for(blist_t *ptr = layer->b2gmap[i][j]; ptr; ptr = ptr->next) {
           sum_occupancy += ptr->occupancy;
         }
         /* This code takes reference from function 'blist_append()' in this file */
@@ -494,9 +492,7 @@ void set_bgmap(grid_model_t *model, layer_t *layer)
       }
     }
   }
-  printf("Exiting ZYH ...\n"); fflush(stdout);
   /* end->ZYH */
-#endif
 }
 
 /* populate default set of layers	*/
