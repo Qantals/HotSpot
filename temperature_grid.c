@@ -459,36 +459,35 @@ void set_bgmap(grid_model_t *model, layer_t *layer)
       }
   }
   /* ZYH: complement parallel resistance for b2gmaps not filled by flp units	*/
-  res = 1/layer->k;
-  sh = layer->sp;
-  /* This code takes reference from function 'reset_b2gmap()' in this file */
-  for(i=0; i < model->rows; i++) {
-    for(j=0; j < model->cols; j++) {
-      /* This code takes reference from function 'blist_append()' in this file */
-      if(layer->b2gmap[i][j] && model->config.detailed_3D_used && (layer->b2gmap[i][j]->lock != TRUE)) {
-        double sum_occupancy = 0.0;
-        /* This code takes reference from function 'blist_avg()' in this file */
-        for(blist_t *ptr = layer->b2gmap[i][j]; ptr; ptr = ptr->next) {
-          sum_occupancy += ptr->occupancy;
-        }
+  if(model->config.detailed_3D_used) {
+    res = 1/layer->k;
+    sh = layer->sp;
+    /* This code takes reference from function 'reset_b2gmap()' in this file */
+    for(i=0; i < model->rows; i++) {
+      for(j=0; j < model->cols; j++) {
         /* This code takes reference from function 'blist_append()' in this file */
-        if((1 - sum_occupancy) >= OCCUPANCY_THRESHOLD) {
-          layer->b2gmap[i][j]->lock = TRUE;
-          layer->b2gmap[i][j]->rx = getr(1/res, cw, ch * layer->thickness);
-          layer->b2gmap[i][j]->ry = getr(1/res, ch, cw * layer->thickness);
-          layer->b2gmap[i][j]->rz = getr(1/res, layer->thickness, cw * ch);
-          layer->b2gmap[i][j]->capacitance = getcap(sh, layer->thickness, cw * ch);
+        if(layer->b2gmap[i][j] && (layer->b2gmap[i][j]->lock != TRUE)) {
+          double sum_occupancy = 0.0;
+          /* This code takes reference from function 'blist_avg()' in this file */
+          for(blist_t *ptr = layer->b2gmap[i][j]; ptr; ptr = ptr->next) {
+            sum_occupancy += ptr->occupancy;
+          }
+          /* This code takes reference from function 'blist_append()' in this file */
+          if((1 - sum_occupancy) >= OCCUPANCY_THRESHOLD) {
+            layer->b2gmap[i][j]->lock = TRUE;
+            layer->b2gmap[i][j]->rx = getr(1/res, cw, ch * layer->thickness);
+            layer->b2gmap[i][j]->ry = getr(1/res, ch, cw * layer->thickness);
+            layer->b2gmap[i][j]->rz = getr(1/res, layer->thickness, cw * ch);
+            layer->b2gmap[i][j]->capacitance = getcap(sh, layer->thickness, cw * ch);
+          }
+          else {
+            layer->b2gmap[i][j]->rx = 1/((1/layer->b2gmap[i][j]->rx) + ((1 / getr(1 / res, cw, ch * layer->thickness)) * (1 - sum_occupancy)));
+            layer->b2gmap[i][j]->ry = 1/((1/layer->b2gmap[i][j]->ry) + ((1 / getr(1 / res, ch, cw * layer->thickness)) * (1 - sum_occupancy)));
+            layer->b2gmap[i][j]->rz = 1/((1/layer->b2gmap[i][j]->rz) + ((1 / getr(1 / res, layer->thickness, cw * ch)) * (1 - sum_occupancy)));
+            layer->b2gmap[i][j]->lock=FALSE;
+          }
+          /* not append another blist node because no name for empty unit */
         }
-        else {
-          layer->b2gmap[i][j]->rx = 1/((1/layer->b2gmap[i][j]->rx) + ((1 / getr(1 / res, cw, ch * layer->thickness)) * (1 - sum_occupancy)));
-          layer->b2gmap[i][j]->ry = 1/((1/layer->b2gmap[i][j]->ry) + ((1 / getr(1 / res, ch, cw * layer->thickness)) * (1 - sum_occupancy)));
-          layer->b2gmap[i][j]->rz = 1/((1/layer->b2gmap[i][j]->rz) + ((1 / getr(1 / res, layer->thickness, cw * ch)) * (1 - sum_occupancy)));
-          layer->b2gmap[i][j]->lock=FALSE;
-        }
-        /* not append another blist node because no name for empty unit */
-      }
-      else {
-        continue;
       }
     }
   }
