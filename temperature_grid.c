@@ -325,25 +325,25 @@ void blist_append(blist_t *head, int idx, double occupancy,double res, double sp
 }
 
 /* compute the power/temperature average weighted by occupancies	*/
-double blist_avg(blist_t *ptr, flp_t *flp, double *v, int type)
+/* ZYH: add init_temp initialization for 'type == V_TEMP' */
+double blist_avg(blist_t *ptr, flp_t *flp, double *v, int type, double init_temp)
 {
   double  val = 0.0;
+  double occupancy_sum = 0.0;
 
   for(; ptr; ptr = ptr->next) {
       if (type == V_POWER)
         val += ptr->occupancy * v[ptr->idx] / (flp->units[ptr->idx].width *
                                                flp->units[ptr->idx].height);
-      else if (type == V_TEMP)
+      else if (type == V_TEMP) {
         val += ptr->occupancy * v[ptr->idx];
+        occupancy_sum += ptr->occupancy;
+      }
       else
         fatal("unknown vector type\n");
   }
-  /* ZYH:
-   * - Add ambient temperature initialization for cases where units do not fulfill the flp.
-   *  This adding is only valid for temperature initialization.
-   * - Assume 'v' is all composed of the same value `model->config.ambient` */
   if (type == V_TEMP) {
-    val = v[0];
+    val += (1.0 - occupancy_sum) * init_temp;
   }
   /* end->ZYH */
 
@@ -1955,12 +1955,14 @@ void xlate_vector_b2g(grid_model_t *model, double *b, grid_model_vector_t *g, in
              */
             /* convert power density to power	*/
             if (type == V_POWER)
+              /* ZYH: add argument for modificated function 'blist_avg()' */
               g->cuboid[n][i][j] = blist_avg(model->layers[n].b2gmap[i][j],
-                                             model->layers[n].flp, &b[base], type) * area;
+                                             model->layers[n].flp, &b[base], type, model->config.init_temp) * area;
             /* no conversion necessary for temperature	*/
             else if (type == V_TEMP)
               g->cuboid[n][i][j] = blist_avg(model->layers[n].b2gmap[i][j],
-                                             model->layers[n].flp, &b[base], type);
+                                             model->layers[n].flp, &b[base], type, model->config.init_temp);
+              /* end->ZYH */
             else
               fatal("unknown vector type\n");
         }
