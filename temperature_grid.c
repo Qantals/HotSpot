@@ -338,6 +338,14 @@ double blist_avg(blist_t *ptr, flp_t *flp, double *v, int type)
       else
         fatal("unknown vector type\n");
   }
+  /* ZYH:
+   * - Add ambient temperature initialization for cases where units do not fulfill the flp.
+   *  This adding is only valid for temperature initialization.
+   * - Assume 'v' is all composed of the same value `model->config.ambient` */
+  if (type == V_TEMP) {
+    val = v[0];
+  }
+  /* end->ZYH */
 
   return val;
 }
